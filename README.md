@@ -2,9 +2,9 @@
 
 Know if your Instagram reel works before you post it.
 
-Drop in a vertical video. Reelcheck pulls 5 frames (0s, 1s, 3s, mid-clip and the end), checks the aspect ratio and resolution, and has an AI vision model review the hook, pacing, text placement, framing and ending. You get a score out of 100, pass/warn/fail checks with timestamps, the top fixes and a better caption.
+Drop in a vertical video. Reelcheck pulls 6 frames (0s, 1s, 3s, halfway, 80% and the end) and pairs them side by side into 3 images, checks the aspect ratio and resolution, and has an AI vision model review the hook, pacing, text placement, framing and ending. You get a score out of 100, pass/warn/fail checks with timestamps, the top fixes and a better caption.
 
-The video never leaves your device. Only the 5 still frames are sent for review.
+The video never leaves your device. Only the 6 still frames are sent for review.
 
 ## How it works
 
@@ -22,7 +22,7 @@ Optional: set `GROQ_MODEL` to use a different Groq vision model (default `qwen/q
 ## Limits
 
 - The AI sees still frames, not motion or sound, so it can't judge audio, music or transitions.
-- Groq's vision models take at most 5 images per request.
+- The default Groq model takes at most 3 images per request, which is why frames are paired.
 - Each server instance allows 8 reviews per visitor per 10 minutes to protect the free quota.
 
 ## License

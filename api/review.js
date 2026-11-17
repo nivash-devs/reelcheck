@@ -1,10 +1,11 @@
-// Reviews a reel from up to 5 still frames using a Groq vision model.
+// Reviews a reel from up to 6 still frames, sent as up to 3 side-by-side images, using a Groq vision model.
 // Needs the GROQ_API_KEY environment variable, set in Vercel's project settings.
 
 const MODEL = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 const GROQ_URL = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1") + "/chat/completions";
-const MAX_FRAMES = 5;
-const MAX_FRAME_CHARS = 1_400_000; // about 1 MB of JPEG per frame, base64
+const MAX_SHEETS = 3; // this model accepts at most 3 images per request
+const MAX_PER_SHEET = 3;
+const MAX_IMAGE_CHARS = 1_400_000; // about 1 MB of JPEG per image, base64
 const GOALS = ["Grow followers", "Launch or promote a product", "Teach something", "Entertain", "Sell something"];
 
 // Simple per-instance limit so one person can't drain the free quota. Resets when the server restarts.
@@ -23,12 +24,13 @@ function fmt(t) {
 }
 
 function buildPrompt(b) {
-  const stamps = b.frames.map((f, i) => `Image ${i + 1} = ${fmt(f.t)}`).join(", ");
+  const total = b.sheets.reduce((n, s) => n + s.times.length, 0);
+  const stamps = b.sheets.map((s, i) => `Image ${i + 1}: ${s.times.map(fmt).join(" (left), ") + (s.times.length > 1 ? " (right)" : "")}`).join("; ");
   const vertical = Math.abs(b.width / b.height - 9 / 16) < 0.03;
   const cap = typeof b.caption === "string" ? b.caption.trim().slice(0, 600) : "";
   return [
     "You are an experienced short-form video editor reviewing an Instagram Reel before it's posted.",
-    `You are given ${b.frames.length} still frames from the video, in order. Timestamps: ${stamps}.`,
+    `You are given ${total} still frames from the video in ${b.sheets.length} images. Each image shows frames side by side, left to right in time order, with its timestamp printed in the top-left corner. White gaps separate frames and are not part of the video. ${stamps}.`,
     "You cannot hear audio or see motion between frames. Say so when the frames aren't enough to judge something; never guess about sound.",
     `Measured from the file: length ${b.duration.toFixed(1)}s, resolution ${b.width}x${b.height}${vertical ? " (9:16 vertical)" : " (NOT 9:16)"}.`,
     `The creator's goal: ${b.goal}.`,
@@ -61,11 +63,11 @@ function parseJson(text) {
 
 function validate(b) {
   if (!b || typeof b !== "object") return "Send JSON.";
-  if (!Array.isArray(b.frames) || b.frames.length < 1 || b.frames.length > MAX_FRAMES) return `Send 1 to ${MAX_FRAMES} frames.`;
-  for (const f of b.frames) {
-    if (!f || typeof f.t !== "number" || typeof f.image !== "string") return "Each frame needs t and image.";
-    if (!/^data:image\/(jpeg|png|webp);base64,/.test(f.image)) return "Frames must be JPEG, PNG or WebP data URLs.";
-    if (f.image.length > MAX_FRAME_CHARS) return "A frame is too large.";
+  if (!Array.isArray(b.sheets) || b.sheets.length < 1 || b.sheets.length > MAX_SHEETS) return `Send 1 to ${MAX_SHEETS} images.`;
+  for (const s of b.sheets) {
+    if (!s || typeof s.image !== "string" || !Array.isArray(s.times) || s.times.length < 1 || s.times.length > MAX_PER_SHEET || !s.times.every((t) => typeof t === "number")) return "Each image needs times and image.";
+    if (!/^data:image\/(jpeg|png|webp);base64,/.test(s.image)) return "Images must be JPEG, PNG or WebP data URLs.";
+    if (s.image.length > MAX_IMAGE_CHARS) return "An image is too large.";
   }
   for (const k of ["duration", "width", "height"]) if (!(typeof b[k] === "number" && b[k] > 0)) return `Missing ${k}.`;
   if (!GOALS.includes(b.goal)) b.goal = GOALS[0];
@@ -83,7 +85,7 @@ export default async function handler(req, res) {
   const bad = validate(body);
   if (bad) return res.status(400).json({ error: bad });
 
-  const content = [{ type: "text", text: buildPrompt(body) }, ...body.frames.map((f) => ({ type: "image_url", image_url: { url: f.image } }))];
+  const content = [{ type: "text", text: buildPrompt(body) }, ...body.sheets.map((s) => ({ type: "image_url", image_url: { url: s.image } }))];
 
   let r;
   try {
