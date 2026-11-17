@@ -120,9 +120,43 @@ ol.fixes { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
 .note-small { font-size: 12.5px; color: var(--muted); margin: 0; }
 
 @media (max-width: 820px) {
-  .desk { grid-template-columns: 1fr; }
-  .left { align-items: center; }
-  .tech, .strip { width: 100%; max-width: 340px; }
+  .wrap { padding-block: 14px 24px; }
+  header { margin-bottom: 14px; }
+  header p { display: none; }
+  h1 { font-size: 28px; margin-bottom: 6px; }
+  .sub { font-size: 15px; margin-bottom: 16px; }
+  .sub .long { display: none; }
+  .desk { grid-template-columns: 1fr; gap: 14px; }
+  .left { align-items: center; gap: 10px; }
+  /* Keep the phone preview to about half the screen height */
+  .phone { width: min(100%, calc(48vh * 9 / 16 + 20px)); border-radius: 22px; padding: 7px; }
+  .screen, .drop { border-radius: 16px; }
+  .drop { padding: 14px; gap: 6px; }
+  .drop b { font-size: 16px; }
+  .drop span { font-size: 13px; }
+  .legend { font-size: 12px; }
+  .strip { width: 100%; justify-content: center; }
+  .strip figure { width: 44px; }
+  .strip img { width: 44px; height: 78px; }
+  .tech { width: 100%; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .tech div { padding: 6px; font-size: 10.5px; }
+  .tech b { font-size: 11px; }
+  .panel { padding: 16px; gap: 14px; border-radius: 12px; }
+  /* Action bar sticks to the bottom of the screen so the button is always in reach */
+  body { padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }
+  .actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; flex-wrap: nowrap; gap: 8px;
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    background: var(--panel); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px rgba(0,0,0,.08); display: grid; grid-template-columns: 1fr auto; }
+  .actions #run, .actions #stop { grid-column: 1; padding-block: 14px; font-size: 16px; white-space: nowrap; }
+  .actions #stop { grid-column: 2; padding-inline: 14px; }
+  .actions #reset { grid-column: 2; grid-row: 1; padding: 14px 12px; font-size: 14px; white-space: nowrap; }
+  .actions .status { grid-column: 1 / -1; font-size: 13px; }
+  .actions #stop:not([hidden]) ~ #reset { display: none; }
+  .report { padding-top: 14px; scroll-margin-top: 12px; }
+  .ring { width: 76px; height: 76px; }
+  .ring b { font-size: 25px; }
+  .verdict { font-size: 15.5px; }
+  .checks li { grid-template-columns: 50px 1fr; gap: 10px; padding: 9px 10px; }
 }
 @media (max-width: 460px) { .form { grid-template-columns: 1fr; } }
 </style>
@@ -136,7 +170,7 @@ ol.fixes { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
   </header>
 
   <h1>Know if your reel works before you post it.</h1>
-  <p class="sub">Drop in a vertical video. Reelcheck pulls frames from the first seconds and the rest of the clip, then AI reviews them like a short-form editor: the hook, pacing, text placement, framing and ending.</p>
+  <p class="sub">Drop in a vertical video and get an editor's review in seconds.<span class="long"> Reelcheck pulls frames from the first seconds and the rest of the clip, then AI checks the hook, pacing, text placement, framing and ending.</span></p>
 
   <div class="desk">
     <div class="left">
@@ -178,7 +212,7 @@ ol.fixes { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
       <div class="actions">
         <button type="button" id="run" disabled>Check my reel</button>
         <button type="button" class="ghost" id="stop" hidden>Stop</button>
-        <button type="button" class="ghost" id="reset" hidden>Use another video</button>
+        <button type="button" class="ghost" id="reset" hidden>New video</button>
         <span class="status" id="status" aria-live="polite">Add a video to start.</span>
       </div>
 
@@ -388,6 +422,7 @@ ol.fixes { margin: 0; padding-left: 20px; display: flex; flex-direction: column;
       if (!res.ok || !data) throw new Error((data && data.error) || "Something went wrong. Try again.");
       render(data);
       setStatus("Done. Edit, re-export and check again.");
+      try { $("report").scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); } catch (e) {}
     } catch (e) {
       if (e && e.name === "AbortError") setStatus("Stopped.");
       else setStatus(e && e.message ? e.message : "Something went wrong. Try again.", true);
