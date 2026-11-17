@@ -99,7 +99,9 @@ export default async function handler(req, res) {
   if (!r.ok) {
     const detail = await r.text().catch(() => "");
     console.error("Groq error", r.status, detail.slice(0, 500));
-    return res.status(502).json({ error: "The AI service returned an error. Try again." });
+    let msg = "";
+    try { msg = JSON.parse(detail)?.error?.message || ""; } catch {}
+    return res.status(502).json({ error: `The AI service returned an error (${r.status}${msg ? ": " + msg.slice(0, 200) : ""}).` });
   }
   const data = await r.json();
   const review = parseJson(data?.choices?.[0]?.message?.content);
