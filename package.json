@@ -1,0 +1,8 @@
+{
+  "name": "reelcheck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Know if your reel works before you post it.",
+  "type": "module",
+  "engines": { "node": ">=18" }
+}

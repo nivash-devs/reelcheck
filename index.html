@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reelcheck</title>
+<meta name="description" content="Know if your Instagram reel works before you post it. AI reviews your hook, pacing, text placement and ending.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an editor's review desk. Left, the reel in a phone frame with its frame strip. Right, the review: score, checklist, fixes. Stacks on phones. */
+:root {
+  --bg: #f5f4f6;
+  --panel: #ffffff;
+  --ink: #17141c;
+  --muted: #625c6b;
+  --line: #e2dfe6;
+  --accent: #d6246e;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe3ed;
+  --pass: #16794c; --pass-soft: #dcf2e6;
+  --warn: #9a5a00; --warn-soft: #fcefd6;
+  --fail: #b42318; --fail-soft: #fde4e1;
+  --phone: #17141c;
+  --f-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121015; --panel: #1b1820; --ink: #efecf2; --muted: #a59eaf; --line: #2e2a35;
+    --accent: #ff5c9a; --accent-ink: #121015; --accent-soft: #3a1626;
+    --pass: #5fd39a; --pass-soft: #12301f; --warn: #ffb547; --warn-soft: #3a2a10; --fail: #ff7b6e; --fail-soft: #3d1714;
+    --phone: #000000;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121015; --panel: #1b1820; --ink: #efecf2; --muted: #a59eaf; --line: #2e2a35;
+  --accent: #ff5c9a; --accent-ink: #121015; --accent-soft: #3a1626;
+  --pass: #5fd39a; --pass-soft: #12301f; --warn: #ffb547; --warn-soft: #3a2a10; --fail: #ff7b6e; --fail-soft: #3d1714;
+  --phone: #000000;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding-block: 24px 48px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+.logo { font-family: var(--f-display); font-weight: 800; font-size: 24px; letter-spacing: -0.03em; }
+.logo span { color: var(--accent); }
+header p { margin: 0; color: var(--muted); max-width: 40em; }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(30px, 4.6vw, 48px); line-height: 1.05; letter-spacing: -0.035em; margin: 0 0 10px; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 17px; margin: 0 0 28px; max-width: 38em; }
+
+.desk { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+.desk > * { min-width: 0; }
+
+.left { display: flex; flex-direction: column; gap: 14px; }
+.phone { background: var(--phone); border-radius: 28px; padding: 10px; width: 100%; max-width: 340px; aspect-ratio: 9 / 16; position: relative; }
+.screen { width: 100%; height: 100%; border-radius: 20px; overflow: hidden; background: #000; position: relative; display: flex; align-items: center; justify-content: center; }
+.screen video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.safe { position: absolute; left: 0; right: 0; pointer-events: none; background: repeating-linear-gradient(135deg, rgba(214,36,110,.28) 0 6px, transparent 6px 12px); }
+.safe.top { top: 0; height: 13%; }
+.safe.bot { bottom: 0; height: 18%; }
+.drop { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #cfc8d8; text-align: center; padding: 24px; cursor: pointer; border: 2px dashed #4a4352; border-radius: 20px; }
+.drop.over { border-color: var(--accent); color: #fff; }
+.drop b { font-family: var(--f-display); color: #fff; font-size: 18px; }
+.legend { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.legend i { width: 14px; height: 10px; display: inline-block; background: repeating-linear-gradient(135deg, var(--accent) 0 3px, transparent 3px 6px); border-radius: 2px; flex: none; }
+
+.strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.strip figure { margin: 0; flex: none; width: 54px; }
+.strip img { width: 54px; height: 96px; object-fit: cover; border-radius: 6px; display: block; background: var(--line); }
+.strip figcaption { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); text-align: center; }
+
+.tech { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tech div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; }
+.tech b { display: block; font-family: var(--f-mono); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form > * { min-width: 0; }
+.form .full { grid-column: 1 / -1; }
+label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 5px; }
+select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+textarea { resize: vertical; min-height: 64px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+button { font: inherit; font-weight: 600; cursor: pointer; border-radius: 10px; padding: 11px 18px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, .drop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { font-size: 14px; color: var(--muted); }
+.status.err { color: var(--fail); }
+
+.report { border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 16px; }
+.tagline { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.score { display: flex; gap: 18px; align-items: center; }
+.ring { --p: 0; width: 92px; height: 92px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: radial-gradient(closest-side, var(--panel) 78%, transparent 79% 100%), conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0); }
+.ring b { font-family: var(--f-display); font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.verdict { font-size: 17px; font-weight: 500; margin: 0; text-wrap: pretty; }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checks li { display: grid; grid-template-columns: 58px 1fr; gap: 12px; align-items: start; padding: 10px 12px; border-radius: 10px; background: var(--bg); }
+.pill { font-family: var(--f-mono); font-size: 11px; text-align: center; padding: 3px 0; border-radius: 99px; font-weight: 500; }
+.pill.pass { background: var(--pass-soft); color: var(--pass); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.fail { background: var(--fail-soft); color: var(--fail); }
+.checks strong { display: block; font-size: 14px; }
+.checks span.note { color: var(--muted); font-size: 14px; }
+h3 { font-family: var(--f-display); font-size: 16px; margin: 0 0 8px; }
+ol.fixes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.caption { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-size: 15px; }
+.note-small { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+@media (max-width: 820px) {
+  .desk { grid-template-columns: 1fr; }
+  .left { align-items: center; }
+  .tech, .strip { width: 100%; max-width: 340px; }
+}
+@media (max-width: 460px) { .form { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="logo">reel<span>check</span></div>
+    <p>Built by Nivash</p>
+  </header>
+
+  <h1>Know if your reel works before you post it.</h1>
+  <p class="sub">Drop in a vertical video. Reelcheck pulls frames from the first seconds and the rest of the clip, then AI reviews them like a short-form editor: the hook, pacing, text placement, framing and ending.</p>
+
+  <div class="desk">
+    <div class="left">
+      <div class="phone">
+        <div class="screen">
+          <video id="video" playsinline muted controls hidden></video>
+          <div class="safe top" id="safeTop" hidden></div>
+          <div class="safe bot" id="safeBot" hidden></div>
+          <label class="drop" id="drop" for="file" tabindex="0">
+            <b>Drop your reel here</b>
+            <span>or tap to choose a video</span>
+            <span style="font-size:12px">MP4 or MOV. It stays on your device; only 5 still frames are sent for review.</span>
+          </label>
+          <input type="file" id="file" accept="video/*" hidden>
+        </div>
+      </div>
+      <div class="legend" id="legend" hidden><i></i>Striped areas get covered by Instagram's buttons and caption.</div>
+      <div class="strip" id="strip"></div>
+      <div class="tech" id="tech" hidden></div>
+    </div>
+
+    <div class="panel">
+      <div class="form">
+        <div class="full">
+          <label for="goal">What's the reel for?</label>
+          <select id="goal">
+            <option>Grow followers</option>
+            <option>Launch or promote a product</option>
+            <option>Teach something</option>
+            <option>Entertain</option>
+            <option>Sell something</option>
+          </select>
+        </div>
+        <div class="full">
+          <label for="caption">Caption you plan to use (optional)</label>
+          <textarea id="caption" placeholder="e.g. built a tool that switches AI agents when you hit your limit"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="run" disabled>Check my reel</button>
+        <button type="button" class="ghost" id="stop" hidden>Stop</button>
+        <button type="button" class="ghost" id="reset" hidden>Use another video</button>
+        <span class="status" id="status" aria-live="polite">Add a video to start.</span>
+      </div>
+
+      <div class="report" id="report"></div>
+      <p class="note-small">The AI sees 5 still frames, not motion or sound, so it can't judge audio, music or transitions. Free while in beta.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { file: null, duration: 0, w: 0, h: 0, frames: [], ctl: null, maxImages: 5 };
+
+  var EXAMPLE = {
+    example: true,
+    score: 62,
+    verdict: "Strong idea, but the first second is a static screen recording, so most people will scroll before the payoff at 0:04.",
+    checks: [
+      { label: "Hook in the first second", status: "fail", note: "0:00 to 0:01 shows a still terminal with small text and no face or motion." },
+      { label: "Something changes by 3 seconds", status: "warn", note: "The first cut comes at 0:03, right at the edge of when viewers decide." },
+      { label: "On-screen text readable and in the safe zone", status: "warn", note: "The title at 0:02 sits in the bottom strip, where the caption will cover it." },
+      { label: "Framed for vertical", status: "pass", note: "The screen recording is cropped to fill the frame without black bars." },
+      { label: "Lighting and focus", status: "pass", note: "Text is sharp and the face shots at 0:06 are well lit." },
+      { label: "Clear ending or call to action", status: "fail", note: "The last frame cuts out mid-sentence with no follow prompt or link mention." }
+    ],
+    fixes: [
+      "Open on the result: show Codex picking up the task in the first second, then rewind to explain.",
+      "Put a 4-6 word headline in the top-middle of the frame by 0:00.",
+      "Move the title up out of the bottom 18% of the screen.",
+      "End on a still with the command and 'follow for the build'."
+    ],
+    caption: "My AI hit its usage limit mid-task. This tool handed the work to Codex in 4 seconds. Command in comments."
+  };
+
+  function fmt(t) { var s = Math.max(0, t); var m = Math.floor(s / 60); var r = (s - m * 60).toFixed(1); return m + ":" + (r < 10 ? "0" : "") + r; }
+  function setStatus(msg, err) { var el = $("status"); el.textContent = msg; el.className = "status" + (err ? " err" : ""); }
+
+  function frameTimes(d, max) {
+    if (max <= 5) {
+      var five = [0, 1, 3, d * 0.6, d - 0.15].map(function (x) { return Math.max(0, Math.min(x, d - 0.15)); });
+      return five.filter(function (x, i, a) { return a.indexOf(x) === i; }).sort(function (a, b) { return a - b; });
+    }
+    var t = [0, 0.5, 1, 2, 3].filter(function (x) { return x < d - 0.05; });
+    var rest = Math.max(0, max - t.length - 1);
+    var start = Math.min(3, d);
+    for (var i = 1; i <= rest; i++) { var x = start + (d - start) * i / (rest + 1); if (x < d - 0.2) t.push(x); }
+    t.push(Math.max(0, d - 0.15));
+    t = t.filter(function (x, i, a) { return a.indexOf(x) === i; }).sort(function (a, b) { return a - b; });
+    return t.slice(0, max);
+  }
+
+  function grab(video, time) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () { if (!done) { done = true; reject(new Error("seek timeout")); } }, 8000);
+      video.addEventListener("seeked", function () {
+        if (done) return; done = true; clearTimeout(timer);
+        var scale = Math.min(1, 900 / Math.max(video.videoWidth, video.videoHeight));
+        var c = document.createElement("canvas");
+        c.width = Math.round(video.videoWidth * scale); c.height = Math.round(video.videoHeight * scale);
+        c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
+        var dataUrl = c.toDataURL("image/jpeg", 0.8);
+        c.toBlob(function (b) { b ? resolve({ t: time, blob: b, url: URL.createObjectURL(b), dataUrl: dataUrl }) : reject(new Error("encode")); }, "image/jpeg", 0.82);
+      }, { once: true });
+      video.currentTime = time;
+    });
+  }
+
+  function techChecks() {
+    var ratio = state.w / state.h, items = [];
+    var vertical = Math.abs(ratio - 9 / 16) < 0.03;
+    items.push(["Aspect ratio", vertical ? "9:16 ✓" : (ratio > 1 ? "Horizontal" : (state.w + ":" + state.h).replace(/^(\d+):(\d+)$/, function () { return ratio.toFixed(2) + " : 1"; }))]);
+    items.push(["Resolution", state.w + "×" + state.h + (Math.min(state.w, state.h) >= 1080 ? " ✓" : Math.min(state.w, state.h) >= 720 ? " (ok)" : " (low)")]);
+    items.push(["Length", fmt(state.duration)]);
+    items.push(["Frames sent", String(state.frames.length)]);
+    $("tech").innerHTML = "";
+    items.forEach(function (it) { var d = document.createElement("div"); d.textContent = it[0]; var b = document.createElement("b"); b.textContent = it[1]; d.appendChild(b); $("tech").appendChild(d); });
+    $("tech").hidden = false;
+    return { vertical: vertical, ratio: ratio };
+  }
+
+  async function loadFile(file) {
+    if (!file || !/^video\//.test(file.type)) { setStatus("That isn't a video file. Try an MP4 or MOV.", true); return; }
+    state.file = file; state.frames.forEach(function (f) { URL.revokeObjectURL(f.url); }); state.frames = [];
+    var v = $("video");
+    v.src = URL.createObjectURL(file);
+    setStatus("Reading the video...");
+    try {
+      await new Promise(function (res, rej) { v.onloadeddata = res; v.onerror = function () { rej(new Error("load")); }; });
+    } catch (e) { setStatus("Your browser couldn't open this video. Try exporting it as MP4 (H.264).", true); return; }
+    state.duration = v.duration; state.w = v.videoWidth; state.h = v.videoHeight;
+    $("drop").hidden = true; v.hidden = false; $("safeTop").hidden = false; $("safeBot").hidden = false; $("legend").hidden = false; $("reset").hidden = false;
+    setStatus("Pulling frames...");
+    var strip = $("strip"); strip.innerHTML = "";
+    var times = frameTimes(state.duration, state.maxImages);
+    try {
+      for (var i = 0; i < times.length; i++) {
+        var f = await grab(v, times[i]); state.frames.push(f);
+        var fig = document.createElement("figure"); var img = document.createElement("img"); img.src = f.url; img.alt = "Frame at " + fmt(f.t);
+        var cap = document.createElement("figcaption"); cap.textContent = fmt(f.t); fig.appendChild(img); fig.appendChild(cap); strip.appendChild(fig);
+      }
+    } catch (e) { if (!state.frames.length) { setStatus("Couldn't read frames from this video. Try exporting it as MP4.", true); return; } }
+    v.currentTime = 0;
+    techChecks();
+    $("run").disabled = false;
+    setStatus("Ready. Press Check my reel.");
+  }
+
+  function buildPrompt(t) {
+    var stamps = state.frames.map(function (f, i) { return "Image " + (i + 1) + " = " + fmt(f.t); }).join(", ");
+    var cap = $("caption").value.trim();
+    return [
+      "You are an experienced short-form video editor reviewing an Instagram Reel before it's posted.",
+      "You are given " + state.frames.length + " still frames from the video, in order. Timestamps: " + stamps + ".",
+      "You cannot hear audio or see motion between frames. Say so when a frame set isn't enough to judge something; never guess about sound.",
+      "Facts measured from the file: length " + state.duration.toFixed(1) + "s, resolution " + state.w + "x" + state.h + (t.vertical ? " (9:16 vertical)" : " (NOT 9:16)") + ".",
+      "The creator's goal: " + $("goal").value + ".",
+      cap ? "Caption they plan to use: \"" + cap.slice(0, 600) + "\"" : "They haven't written a caption yet.",
+      "",
+      "Review these checks, in this order, with these exact labels:",
+      "1. Hook in the first second",
+      "2. Something changes by 3 seconds",
+      "3. On-screen text readable and in the safe zone (Instagram's buttons and caption cover roughly the top 13% and bottom 18% of the frame)",
+      "4. Framed for vertical",
+      "5. Lighting and focus",
+      "6. Clear ending or call to action",
+      "",
+      "Every note must point at what is actually visible and cite timestamps like 0:02.0. Be direct and specific, like a friend who edits for a living. No generic advice.",
+      "",
+      "Reply with only this JSON:",
+      "{\"score\": integer 0-100, \"verdict\": \"one sentence on whether this will hold attention and why\", \"checks\": [{\"label\": string, \"status\": \"pass\"|\"warn\"|\"fail\", \"note\": \"one sentence\"}], \"fixes\": [\"up to 5 concrete edits, most important first\"], \"caption\": \"a better caption under 150 characters that fits the video\"}"
+    ].join("\n");
+  }
+
+  function render(r) {
+    var rep = $("report"); rep.innerHTML = "";
+    var tag = document.createElement("div"); tag.className = "tagline"; tag.textContent = r.example ? "Example review. Add your video to get yours" : "Your review"; rep.appendChild(tag);
+    var sc = document.createElement("div"); sc.className = "score";
+    var ring = document.createElement("div"); ring.className = "ring"; var n = Math.max(0, Math.min(100, parseInt(r.score, 10) || 0)); ring.style.setProperty("--p", n);
+    var b = document.createElement("b"); b.textContent = n; ring.appendChild(b);
+    var v = document.createElement("p"); v.className = "verdict"; v.textContent = String(r.verdict || "");
+    sc.appendChild(ring); sc.appendChild(v); rep.appendChild(sc);
+    var ul = document.createElement("ul"); ul.className = "checks";
+    (Array.isArray(r.checks) ? r.checks : []).forEach(function (c) {
+      var st = ["pass", "warn", "fail"].indexOf(c.status) >= 0 ? c.status : "warn";
+      var li = document.createElement("li"); var p = document.createElement("span"); p.className = "pill " + st; p.textContent = st;
+      var d = document.createElement("div"); var s = document.createElement("strong"); s.textContent = String(c.label || "");
+      var nt = document.createElement("span"); nt.className = "note"; nt.textContent = String(c.note || "");
+      d.appendChild(s); d.appendChild(nt); li.appendChild(p); li.appendChild(d); ul.appendChild(li);
+    });
+    rep.appendChild(ul);
+    if (Array.isArray(r.fixes) && r.fixes.length) {
+      var w = document.createElement("div"); var h = document.createElement("h3"); h.textContent = "Fix these first"; w.appendChild(h);
+      var ol = document.createElement("ol"); ol.className = "fixes";
+      r.fixes.slice(0, 5).forEach(function (f) { var li = document.createElement("li"); li.textContent = String(f); ol.appendChild(li); });
+      w.appendChild(ol); rep.appendChild(w);
+    }
+    if (r.caption) {
+      var cw = document.createElement("div"); var ch = document.createElement("h3"); ch.textContent = "Suggested caption"; cw.appendChild(ch);
+      var cp = document.createElement("div"); cp.className = "caption"; cp.textContent = String(r.caption); cw.appendChild(cp); rep.appendChild(cw);
+    }
+  }
+
+  async function run() {
+    if (!state.frames.length) return;
+    state.ctl = new AbortController();
+    $("run").disabled = true; $("stop").hidden = false;
+    setStatus("Reviewing your frames. This usually takes a few seconds...");
+    try {
+      var res = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: state.ctl.signal,
+        body: JSON.stringify({
+          frames: state.frames.map(function (f) { return { t: f.t, image: f.dataUrl }; }),
+          duration: state.duration, width: state.w, height: state.h,
+          goal: $("goal").value, caption: $("caption").value
+        })
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (!res.ok || !data) throw new Error((data && data.error) || "Something went wrong. Try again.");
+      render(data);
+      setStatus("Done. Edit, re-export and check again.");
+    } catch (e) {
+      if (e && e.name === "AbortError") setStatus("Stopped.");
+      else setStatus(e && e.message ? e.message : "Something went wrong. Try again.", true);
+    } finally {
+      $("stop").hidden = true; $("run").disabled = !state.frames.length;
+    }
+  }
+
+  function reset() {
+    var v = $("video"); v.pause(); v.removeAttribute("src"); v.load(); v.hidden = true;
+    $("drop").hidden = false; $("safeTop").hidden = true; $("safeBot").hidden = true; $("legend").hidden = true; $("reset").hidden = true; $("tech").hidden = true;
+    $("strip").innerHTML = ""; state.frames = []; state.file = null; $("file").value = "";
+    $("run").disabled = true; setStatus("Add a video to start."); render(EXAMPLE);
+  }
+
+  $("file").addEventListener("change", function (e) { loadFile(e.target.files[0]); });
+  var drop = $("drop");
+  drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+  ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); }); });
+  drop.addEventListener("drop", function (e) { if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  $("run").addEventListener("click", run);
+  $("stop").addEventListener("click", function () { if (state.ctl) state.ctl.abort(); });
+  $("reset").addEventListener("click", reset);
+
+  render(EXAMPLE);
+
+})();
+</script>
+</body>
+</html>
